@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Snake Game</title>
+        <style>
+            canvas{
+                background: bisque;
+                display: block;
+                margin-left: 190px;
+                border: 1px solid black;
+            }
+
+            .d-flex{
+                display: flex;
+            }
+
+            .ml-5{
+                margin-left: 5px;
+            }
+
+            #score-board{
+                font-style: italic;
+                font-family: cursive;
+                font-size: x-large;
+                font-weight: 600;
+                width: 300px;
+            }
+
+            .hide{
+                display: none;
+            }
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.12.0/underscore-min.js"></script>
+    </head>
+    <body>
+        <div class="d-flex">
+            <div id="score-board" class="ml-5">
+                <div class="d-flex">
+                    Current Score : <div id="current-score" class="ml-5">0</div>
+                </div>
+                <div class="d-flex">
+                    Best Score : <div id="best-score" class="ml-5">0</div>
+                </div>
+            </div>
+            <canvas id="canvas" width="510" height="510">
+            </canvas>
+        </div>
+        <div id="debug-window" class="hide">
+            <div class="d-flex">
+                Snake Length : <div id="snake-length" class="ml-5"></div>
+            </div>
+            <div class="d-flex">
+                Food Counter : <div id="food-counter" class="ml-5">0</div>
+            </div>
+            <div class="d-flex">
+                Snake Speed : <div id="snake-speed" class="ml-5">200</div>
+            </div>
+             <!-- : <div id="snake-length"></div> -->
+        </div>
+    </body>
+    <script>
+        const cvs = document.getElementById('canvas');
+        ctx = cvs.getContext('2d');
+        var current_move = 'right';
+        var snakeCd = [[210,250], [220,250], [230,250], [240,250], [250,250]];
+        var food_location = false;
+        var need_food_redraw = true;
+        var pre_food_location = [];
+        var food_counter = 0;
+        var snake_speed = 200;
+        var game_timer = false;
+
+        // Score management.
+        var current_score = 0;
+        var best_score = 0;
+
+        function drawSnake() {
+            for (var cord=0; cord < snakeCd.length; cord++) {
+                ctx.beginPath();
+                ctx.rect(snakeCd[cord][0], snakeCd[cord][1], 10, 10);
+                ctx.fillStyle = 'green';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawFood() {
+            ctx.beginPath();
+            if (need_food_redraw) {
+                need_food_redraw = false;
+                food_location = get_food_location();
+            }
+            ctx.rect(food_location[0], food_location[1], 10, 10);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function get_food_location() {
+            var snake_coordinate = get_snake_coordinate();
+            var x_coordinate = get_random_coordinate();
+            // change x_coordinate value.
+            while(snake_coordinate[0].indexOf(x_coordinate) > -1){
+                x_coordinate = get_random_coordinate();
+            }
+
+            var y_coordinate = get_random_coordinate();
+            while(snake_coordinate[1].indexOf(y_coordinate) > -1){
+                y_coordinate = get_random_coordinate();
+            }
+            
+            return [x_coordinate, y_coordinate];
+        }
+
+        function get_snake_coordinate() {
+            // Return x and y corrdinate list.
+            return [_.map(snakeCd, function(cd) {return cd[0]}), _.map(snakeCd, function(cd) {return cd[1]})];
+        }
+
+        function get_random_coordinate(){
+            return Math.ceil((Math.floor(Math.random() * 501))/10)*10;
+        }
+
+        function moveSnake() {
+            if (current_move == 'up')
+                move_up();
+            else if (current_move == 'down')
+                move_down();
+            else if(current_move == 'left')
+                move_left();
+            else if(current_move == 'right')
+                move_right();
+
+            // Check if snake has eaten the food then redraw the food.
+            var temp_snake_head = snakeCd[snakeCd.length-1];
+            if (food_location && food_location[0] == temp_snake_head[0] && food_location[1] == temp_snake_head[1]) {
+                pre_food_location.push(food_location);
+                need_food_redraw = true;
+                food_counter++;
+
+                // Update snake speed
+                if (snake_speed >= 10){
+                    clearInterval(game_timer);
+                    snake_speed = 200 - (food_counter * 2);
+                    game_timer = setInterval(draw, snake_speed);
+                    document.getElementById('snake-speed').innerText = snake_speed;
+                }
+                document.getElementById('food-counter').innerText = food_counter;
+
+                // Update score.
+                current_score =  food_counter * 10;
+                if (best_score <= current_score){
+                    best_score = current_score;
+                }
+
+                document.getElementById('current-score').innerText = current_score;
+                document.getElementById('best-score').innerText = best_score;
+            }
+        }
+
+        function move_right() {
+            shift_snake_tail();
+            snke_head = snakeCd[snakeCd.length-1];
+            var new_coordinate = [snke_head[0]+10, snke_head[1]];
+            if (snke_head[0] >= 500) {
+                new_coordinate = [0, snke_head[1]];
+            }
+            snake_overlap_move(new_coordinate);
+        }
+
+        function move_left() {
+            shift_snake_tail();
+            snke_head = snakeCd[snakeCd.length-1];
+            var new_coordinate = [snke_head[0]-10, snke_head[1]];
+            if (snke_head[0] <= 0) {
+                new_coordinate = [500, snke_head[1]];
+            }
+            snake_overlap_move(new_coordinate);
+        }
+
+        function move_up() {
+            shift_snake_tail();
+            snke_head = snakeCd[snakeCd.length-1];
+            var new_coordinate = [snke_head[0], snke_head[1]-10];
+            if (snke_head[1] <= 0){
+                new_coordinate = [snke_head[0], 500];
+            }
+            snake_overlap_move(new_coordinate);
+        }
+
+        function move_down() {
+            shift_snake_tail();
+            snke_head = snakeCd[snakeCd.length-1];
+            var new_coordinate = [snke_head[0], snke_head[1]+10];
+            if (snke_head[1] >= 500) {
+                new_coordinate = [snke_head[0], 0];
+            }
+            snake_overlap_move(new_coordinate);
+        }
+        
+        function shift_snake_tail(){
+            // if tail is not equal to previous food location then shif the tail otherwise not shift the tail, this will 
+            // increase the size of the snake by 1. 
+            if (!(pre_food_location.length && pre_food_location[0][0] == snakeCd[0][0] && pre_food_location[0][1] == snakeCd[0][1])){
+                snakeCd.shift();
+            }
+            else{
+                pre_food_location.shift();
+            }
+            document.getElementById('snake-length').innerText = snakeCd.length;
+        }
+
+        function game_reset() {
+            snakeCd = [[210,250], [220,250], [230,250], [240,250], [250,250]];
+            current_move = 'right';
+            food_counter = 0;
+            snake_speed = 200;
+            document.getElementById('food-counter').innerText = food_counter;
+            clearInterval(game_timer);
+            document.getElementById('snake-speed').innerText = snake_speed;
+            current_score = 0;
+            document.getElementById('current-score').innerText = current_score;
+            game_timer = setInterval(draw, snake_speed);
+        }
+        
+        function snake_overlap_move(new_coordinate){
+            var snake_coordinate = get_snake_coordinate();
+            // match x coordinate first and gets the position.
+            var head_x_cd_index = snake_coordinate[0].indexOf(new_coordinate[0]);
+            var head_y_cd_index = snake_coordinate[1].indexOf(new_coordinate[1]);
+            if (head_x_cd_index > -1 && snake_coordinate[1][head_x_cd_index] == new_coordinate[1]){
+                game_reset();
+            }
+            else if (head_y_cd_index > -1 && snake_coordinate[0][head_y_cd_index] == new_coordinate[0]){
+                game_reset();
+            }
+            else
+                snakeCd.push(new_coordinate);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, cvs.width, cvs.height);
+            drawGrid(510, 510, 'canvas');
+            moveSnake();
+            drawSnake();
+            drawFood();
+        }
+
+
+        // Bind keyboard keys.
+        document.addEventListener("keydown", keyDownHandler, false);
+        // document.addEventListener("keyup", keyUpHandler, false);
+
+        function keyDownHandler(e) {
+            if(e.key == "ArrowUp") {
+                // Not allowed reverse movement.
+                if (current_move != 'down')
+                    current_move = 'up';
+            }
+            else if(e.key == "ArrowDown") {
+                if (current_move != 'up')
+                    current_move = 'down';
+            }
+            else if(e.key == "ArrowRight") {
+                if (current_move != 'left')
+                    current_move = 'right';
+            }
+            else if(e.key == "ArrowLeft") {
+                if (current_move != 'right')
+                    current_move = 'left';
+            }
+        }
+
+        var drawGrid = function(w, h, id) {
+            for (x = 0; x <= w; x += 10) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                for (y = 0; y <= h; y += 10) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                }
+            }
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+        };
+        
+        document.getElementById('snake-speed').innerText = snake_speed;
+        game_timer = setInterval(draw, snake_speed);
+
+    </script>
+</html>
